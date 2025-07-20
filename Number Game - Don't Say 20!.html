@@ -1,0 +1,125 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Number Game - Don't say 20!</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-200 flex items-center justify-center h-screen">
+    <div class="bg-gradient-to-br from-blue-100 to-purple-100 p-6 rounded-lg shadow-xl w-full max-w-md border-4 border-indigo-400">
+        <h1 class="text-3xl font-bold text-center mb-4 text-indigo-600">Number Game - Don't say 20!</h1>
+        <p class="text-sm text-gray-700 text-center mb-4 p-2 border border-gray-300 rounded">How to Play: Whoever starts the game has to start with number 1. Each player can say 2 consecutive numbers. Example, Player 1 who starts the game can say 1 or 1,2. Then Player 2 can continue from the next consecutive number. The player who is forced to say 20 looses.</p>
+        <p class="text-center mb-4">Current Player: <span id="currentPlayer" class="font-semibold text-blue-700">Player 1</span></p>
+        <p class="text-center mb-4">Last Number: <span id="lastNumber" class="font-semibold text-blue-700">0</span></p>
+        <p id="gameStatus" class="text-center text-red-600 font-bold mb-4 hidden"></p>
+        <div class="flex justify-center space-x-4 mb-4">
+            <button id="sayOne" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 border border-blue-800">Say 1 Number</button>
+            <button id="sayTwo" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 border border-blue-800">Say 2 Numbers</button>
+        </div>
+        <div id="numberList" class="text-center mb-4 text-gray-800"></div>
+        <button id="restart" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 w-full border border-green-800 hidden">Restart Game</button>
+    </div>
+
+    <script>
+        let currentNumber = 0;
+        let currentPlayer = 1;
+        let gameOver = false;
+
+        const lastNumberDisplay = document.getElementById('lastNumber');
+        const currentPlayerDisplay = document.getElementById('currentPlayer');
+        const gameStatus = document.getElementById('gameStatus');
+        const numberList = document.getElementById('numberList');
+        const sayOneButton = document.getElementById('sayOne');
+        const sayTwoButton = document.getElementById('sayTwo');
+        const restartButton = document.getElementById('restart');
+
+        function updateGameState(numbersSaid) {
+            if (gameOver) return;
+
+            currentNumber += numbersSaid;
+            const numbers = numbersSaid === 1 ? [currentNumber] : [currentNumber - 1, currentNumber];
+            numberList.innerHTML += `<p>Player ${currentPlayer} says: ${numbers.join(', ')}</p>`;
+            lastNumberDisplay.textContent = currentNumber;
+
+            if (currentNumber >= 20) {
+                gameOver = true;
+                gameStatus.textContent = `Player ${currentPlayer} says 20 and loses!`;
+                gameStatus.classList.remove('hidden');
+                sayOneButton.classList.add('hidden');
+                sayTwoButton.classList.add('hidden');
+                restartButton.classList.remove('hidden');
+                return;
+            }
+
+            currentPlayer = currentPlayer === 1 ? 2 : 1;
+            currentPlayerDisplay.textContent = `Player ${currentPlayer}`;
+            updateButtonStates();
+        }
+
+        function updateButtonStates() {
+            sayOneButton.disabled = currentNumber >= 20;
+            sayTwoButton.disabled = currentNumber >= 19;
+        }
+
+        sayOneButton.addEventListener('click', () => updateGameState(1));
+        sayTwoButton.addEventListener('click', () => updateGameState(2));
+
+        restartButton.addEventListener('click', () => {
+            currentNumber = 0;
+            currentPlayer = 1;
+            gameOver = false;
+            numberList.innerHTML = '';
+            lastNumberDisplay.textContent = '0';
+            currentPlayerDisplay.textContent = 'Player 1';
+            gameStatus.classList.add('hidden');
+            sayOneButton.classList.remove('hidden');
+            sayTwoButton.classList.remove('hidden');
+            restartButton.classList.add('hidden');
+            updateButtonStates();
+        });
+
+        // Initialize button states
+        updateButtonStates();
+    </script>
+</body>
+</html>
